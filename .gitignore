@@ -1,0 +1,3 @@
+.vscode/
+datacollection/node_modules
+*.csv

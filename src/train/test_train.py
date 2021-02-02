@@ -24,12 +24,3 @@ X_train, X_test, y_train, y_test = train_test_split(doc_vectors, data.label, tes
 svc = LinearSVC(random_state=1, dual=False, max_iter=10000)
 svc.fit(X_train, y_train)
 print(f"Accuracy: {svc.score(X_test, y_test) * 100:.3f}%", )
-
-
-# lgb = LGBMClassifier(random_state=666)
-# lgb.fit(X_train,y_train)
-# print(f"Accuracy: {lgb.score(X_test, y_test) * 100:.3f}%", )
-
-# xgb = XGBClassifier(random_state=666)
-# xgb.fit(X_train,y_train)
-# print(f"Accuracy: {xgb.score(X_test, y_test) * 100:.3f}%", )

@@ -3,24 +3,115 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 from preprocessor import Preprocessor
-
+import random
+import os
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from itertools import combinations
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
 train_preprocessor = Preprocessor()
 
-data = pd.read_csv("../../data/wikipedia.csv")
+raw_data = pd.read_csv("../../data/wikipedia.csv")
 # clean out where text is NaN
-data = data[data.text.notna()]
+raw_data = raw_data[raw_data.text.notna()]
 
-doc_vectors = np.array([train_preprocessor.vectorize(text) for text in data.text])
 
-print(doc_vectors.shape)
+x = []
+y = []
+for row in raw_data.text:
+    # get words TODO only relevant words
+    words = train_preprocessor.normalize_words(row)
+    print(words)
+    for (a, b) in combinations(words,2):
+        x.append(a)
+        y.append(b)
+        print(a)
+        print(b)
 
-# doc_vectores.shape => (359, 300)
 
-X_train, X_test, y_train, y_test = train_test_split(doc_vectors, data.label, test_size=0.1, random_state=1)
+features = tf.constant(x, shape=(1,len(x),300))
 
-# implement NN or boosting
+labels = tf.constant(y, shape=(1,len(y),300))
+#train_dataset = tf.data.Dataset.from_tensor_slices((features,labels))
+features_dataset = tf.data.Dataset.from_tensor_slices(features)
+labels_dataset = tf.data.Dataset.from_tensor_slices(labels)
 
-# Set dual=False to speed up training, and it's not needed
-svc = LinearSVC(random_state=1, dual=False, max_iter=10000)
-svc.fit(X_train, y_train)
-print(f"Accuracy: {svc.score(X_test, y_test) * 100:.3f}%", )
+train_dataset = tf.data.Dataset.zip((features_dataset, labels_dataset)).batch(1024)
+
+model = tf.keras.Sequential([
+  tf.keras.layers.Dense(100, activation=tf.nn.relu, input_shape=(300,)),
+  tf.keras.layers.Dense(100, activation=tf.nn.relu),
+  tf.keras.layers.Dense(300)
+])
+
+
+loss_object = tf.keras.losses.MeanSquaredError()
+
+
+def loss(model, x, y, training):
+  # training=training is needed only if there are layers with different
+  # behavior during training versus inference (e.g. Dropout).
+  y_ = model(x, training=training)
+
+  return loss_object(y_true=y, y_pred=y_)
+
+def grad(model, inputs, targets):
+  with tf.GradientTape() as tape:
+    loss_value = loss(model, inputs, targets, training=True)
+  return loss_value, tape.gradient(loss_value, model.trainable_variables)
+
+optimizer = tf.keras.optimizers.SGD(learning_rate=0.01)
+
+train_loss_results = []
+train_accuracy_results = []
+num_epochs = 2000
+import time
+for epoch in range(num_epochs):
+  start = time.time()
+  epoch_loss_avg = tf.keras.metrics.Mean()
+  epoch_accuracy = tf.keras.metrics.MeanSquaredError()
+
+  # Training loop - using batches of 32
+  for x, y in train_dataset:
+    # Optimize the model
+    loss_value, grads = grad(model, x, y)
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+    # Track progress
+    epoch_loss_avg.update_state(loss_value)  # Add current batch loss
+    # Compare predicted label to actual label
+    # training=True is needed only if there are layers with different
+    # behavior during training versus inference (e.g. Dropout).
+    predictions = model(x, training=True)
+    #new_y = get_new_y(predictions, y)
+    epoch_accuracy.update_state(y, predictions)
+
+  # End epoch
+  train_loss_results.append(epoch_loss_avg.result())
+  train_accuracy_results.append(epoch_accuracy.result())
+  end = time.time()
+  print("Epoch {:03d}: Loss: {:.3f}, MAE: {:.3}, time: {:.8f}".format(epoch,epoch_loss_avg.result(),epoch_accuracy.result(), end - start))
+
+def test(text):
+    word_vectors = train_preprocessor.normalize_words(text)
+    predicted_vectors = model(tf.constant(word_vectors), training=False)
+    return np.average(predicted_vectors, axis=0)
+
+# a = "Brot (ahd. prôt, von urgerm. *brauda-) ist ein traditionelles Nahrungsmittel, das aus einem Teig aus gemahlenem Getreide (Mehl), Wasser, einem Triebmittel und meist weiteren Zutaten gebacken wird. Brot zählt zu den Grundnahrungsmitteln."
+# b = "Eine enge Gangabstufung ist auch für Transportarbeiten günstig, da das Verhältnis von Leistung und Gesamtgewicht des Zuges bei Traktoren häufig geringer ist als bei Lastkraftwagen."
+a = "Weizen"
+b = "Luftmasche"
+query = "Brot"
+a = test(a)
+b = test(b)
+query = test(query)
+
+
+diff1 = np.linalg.norm(query - a)
+diff2 = np.linalg.norm(query - b)
+diff3 = np.linalg.norm(a - b)
+
+print(diff1)
+print(diff2)
+print(diff3)

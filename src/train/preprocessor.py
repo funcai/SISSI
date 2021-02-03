@@ -18,6 +18,11 @@ class Preprocessor:
             return norm_doc.vector
 
     def normalize_words(self,text):
-        words = ''.join([word.lemma_ for word in self.nlp(text)]).strip()
-        vectors = [word.vector for word in self.nlp(words)]
-        return np.asarray(vectors).astype('float32')
+        words = ''.join([word.lemma_ + " " for word in self.nlp(text) if not word.is_punct and not word.is_stop and not word.is_oov and not word.like_num and not word.like_url]).strip()
+        return np.asarray(self.nlp(words))
+        #vectors = [word.vector for word in self.nlp(words)]
+        #return np.asarray(vectors).astype('float32')
+    
+    def text_vector(self,text):
+        vectors = self.normalize_words(self, text)
+        return np.mean(vectors)

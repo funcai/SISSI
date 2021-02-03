@@ -8,6 +8,13 @@ const urls = [
   'https://de.wikipedia.org/wiki/H%C3%A4keln',
   'https://de.wikipedia.org/wiki/Polizei',
   'https://de.wikipedia.org/wiki/Philosophie',
+  'https://de.wikipedia.org/wiki/Weizen',
+  'https://de.wikipedia.org/wiki/Weichweizen',
+  'https://de.wikipedia.org/wiki/Einkorn',
+  'https://de.wikipedia.org/wiki/Emmer_(Getreide)',
+  'https://de.wikipedia.org/wiki/Hartweizen',
+  'https://de.wikipedia.org/wiki/Khorasan-Weizen',
+  'https://de.wikipedia.org/wiki/Dinkel',
 ]
 
 async function getSentences(url) {

@@ -42,3 +42,18 @@
 | bäcker      |    brot |
 | bäcker      |    fahren |
 | fahren      |    auto |
+
+brot: [0,1,0,0,0,0]
+weizen: [0,0,0,0,0,1]
+
+Brot-> vector
+
+Brot: [0,0.95,0,0,0,0.05]
+20x Brot
+
+
+Bäcker
+5x Brot
+
+Weizen
+1x Brot

@@ -8,43 +8,30 @@ import os
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from itertools import combinations
-gpus = tf.config.experimental.list_physical_devices('GPU')
-print(gpus)
 train_preprocessor = Preprocessor()
 
 raw_data = pd.read_csv("../../data/wikipedia.csv")
 # clean out where text is NaN
 raw_data = raw_data[raw_data.text.notna()]
 
-
-x = []
-y = []
-for row in raw_data.text:
-    # get words TODO only relevant words
-    words = train_preprocessor.normalize_words(row)
-    for (a, b) in combinations(words,2):
-        x.append(a)
-        y.append(b)
-
+x = [train_preprocessor.vectorize(sentence) for sentence in raw_data.text]
+y = raw_data.label.to_numpy()
 
 features = tf.constant(x, shape=(1,len(x),300))
+labels = tf.constant(y, shape=(1,len(y),1))
 
-labels = tf.constant(y, shape=(1,len(y),300))
-#train_dataset = tf.data.Dataset.from_tensor_slices((features,labels))
 features_dataset = tf.data.Dataset.from_tensor_slices(features)
 labels_dataset = tf.data.Dataset.from_tensor_slices(labels)
 
-train_dataset = tf.data.Dataset.zip((features_dataset, labels_dataset)).batch(1024)
+train_dataset = tf.data.Dataset.zip((features_dataset, labels_dataset))
 
 model = tf.keras.Sequential([
-  tf.keras.layers.Dense(100, activation=None, input_shape=(300,)),
-  tf.keras.layers.Dense(100, activation=None),
+  tf.keras.layers.Dense(100, activation='relu', input_shape=(300,)),
+  tf.keras.layers.Dense(100, activation='relu'),
   tf.keras.layers.Dense(300)
 ])
 
-
-loss_object = tf.keras.losses.CosineSimilarity(axis=1)
-
+loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
 def loss(model, x, y, training):
   # training=training is needed only if there are layers with different
@@ -62,12 +49,12 @@ optimizer = tf.keras.optimizers.SGD(learning_rate=0.01)
 
 train_loss_results = []
 train_accuracy_results = []
-num_epochs = 1000
+num_epochs = 5000
 import time
 for epoch in range(num_epochs):
   start = time.time()
   epoch_loss_avg = tf.keras.metrics.Mean()
-  epoch_accuracy = tf.keras.metrics.MeanSquaredError()
+  epoch_accuracy = tf.keras.metrics.SparseCategoricalCrossentropy(from_logits=True)
 
   # Training loop - using batches of 32
   for x, y in train_dataset:
@@ -93,14 +80,15 @@ for epoch in range(num_epochs):
 model.save('../../models/test.hdf5')
 
 def test(text):
-    word_vectors = train_preprocessor.normalize_words(text)
-    predicted_vectors = model(tf.constant(word_vectors), training=False)
+    word_vectors = train_preprocessor.text_vector(text)
+    predicted_vectors = model(tf.constant([word_vectors]), training=False)
+    return predicted_vectors
     return np.average(predicted_vectors, axis=0)
 
-# a = "Brot (ahd. prôt, von urgerm. *brauda-) ist ein traditionelles Nahrungsmittel, das aus einem Teig aus gemahlenem Getreide (Mehl), Wasser, einem Triebmittel und meist weiteren Zutaten gebacken wird. Brot zählt zu den Grundnahrungsmitteln."
-# b = "Eine enge Gangabstufung ist auch für Transportarbeiten günstig, da das Verhältnis von Leistung und Gesamtgewicht des Zuges bei Traktoren häufig geringer ist als bei Lastkraftwagen."
-a = "Weizen"
-b = "Luftmasche"
+a = "Brot (ahd. prôt, von urgerm. *brauda-) ist ein traditionelles Nahrungsmittel, das aus einem Teig aus gemahlenem Getreide (Mehl), Wasser, einem Triebmittel und meist weiteren Zutaten gebacken wird. Brot zählt zu den Grundnahrungsmitteln."
+b = "Eine enge Gangabstufung ist auch für Transportarbeiten günstig, da das Verhältnis von Leistung und Gesamtgewicht des Zuges bei Traktoren häufig geringer ist als bei Lastkraftwagen."
+#a = "Weizen"
+#b = "Luftmasche"
 query = "Brot"
 a = test(a)
 b = test(b)

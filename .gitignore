@@ -1,4 +1,4 @@
 .vscode/
 datacollection/node_modules
-data/wikipedia.csv
+data/*.csv
 __pycache__

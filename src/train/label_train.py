@@ -10,7 +10,7 @@ import tensorflow as tf
 from itertools import combinations
 train_preprocessor = Preprocessor()
 
-raw_data = pd.read_csv("../../data/wikipedia.csv")
+raw_data = pd.read_csv("../../data/wiki_de.csv")
 # clean out where text is NaN
 raw_data = raw_data[raw_data.text.notna()]
 
@@ -23,60 +23,26 @@ labels = tf.constant(y, shape=(1,len(y),1))
 features_dataset = tf.data.Dataset.from_tensor_slices(features)
 labels_dataset = tf.data.Dataset.from_tensor_slices(labels)
 
-train_dataset = tf.data.Dataset.zip((features_dataset, labels_dataset))
+dataset = tf.data.Dataset.zip((features_dataset, labels_dataset))
+
+split = 9
+train_dataset = dataset.window(split, split + 1).flat_map(lambda *ds: ds[0] if len(ds) == 1 else tf.data.Dataset.zip(ds))
+validation_dataset = dataset.skip(split).window(1, split + 1).flat_map(lambda *ds: ds[0] if len(ds) == 1 else tf.data.Dataset.zip(ds))
 
 model = tf.keras.Sequential([
-  tf.keras.layers.Dense(100, activation='relu', input_shape=(300,)),
-  tf.keras.layers.Dense(100, activation='relu'),
+  tf.keras.layers.Dense(1000, activation='relu', input_shape=(300,)),
+  tf.keras.layers.Dense(1000, activation='relu'),
+  tf.keras.layers.Dense(1000, activation='relu'),
   tf.keras.layers.Dense(300)
 ])
 
+num_epochs = 200
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+model.compile(loss=loss_object, optimizer="adam", metrics=["accuracy"])
 
-def loss(model, x, y, training):
-  # training=training is needed only if there are layers with different
-  # behavior during training versus inference (e.g. Dropout).
-  y_ = model(x, training=training)
 
-  return loss_object(y_true=y, y_pred=y_)
-
-def grad(model, inputs, targets):
-  with tf.GradientTape() as tape:
-    loss_value = loss(model, inputs, targets, training=True)
-  return loss_value, tape.gradient(loss_value, model.trainable_variables)
-
-optimizer = tf.keras.optimizers.SGD(learning_rate=0.01)
-
-train_loss_results = []
-train_accuracy_results = []
-num_epochs = 5000
-import time
-for epoch in range(num_epochs):
-  start = time.time()
-  epoch_loss_avg = tf.keras.metrics.Mean()
-  epoch_accuracy = tf.keras.metrics.SparseCategoricalCrossentropy(from_logits=True)
-
-  # Training loop - using batches of 32
-  for x, y in train_dataset:
-    # Optimize the model
-    loss_value, grads = grad(model, x, y)
-    optimizer.apply_gradients(zip(grads, model.trainable_variables))
-
-    # Track progress
-    epoch_loss_avg.update_state(loss_value)  # Add current batch loss
-    # Compare predicted label to actual label
-    # training=True is needed only if there are layers with different
-    # behavior during training versus inference (e.g. Dropout).
-    predictions = model(x, training=True)
-    #new_y = get_new_y(predictions, y)
-    epoch_accuracy.update_state(y, predictions)
-
-  # End epoch
-  train_loss_results.append(epoch_loss_avg.result())
-  train_accuracy_results.append(epoch_accuracy.result())
-  end = time.time()
-  print("Epoch {:03d}: Loss: {:.3f}, MAE: {:.3}, time: {:.8f}".format(epoch,epoch_loss_avg.result(),epoch_accuracy.result(), end - start))
-
+model.fit(train_dataset, validation_data=validation_dataset, epochs=num_epochs)
+#model.evaluate(validation_dataset)
 model.save('../../models/test.hdf5')
 
 def test(text):

@@ -19,20 +19,20 @@ def test(text):
     return predicted_vectors
     return np.average(predicted_vectors, axis=0)
 
-a = "Nahrungsmittel"
-b = "Luftmasche"
+a = "Abgrenzung und Philosophie"
+b = "Oscarverleihung 20062006: Auszeichnung in der Kategorie Oscar/Beste RegieBeste Regie für Brokeback Mountain"
 #a = "Weizen"
 #b = "Luftmasche"
-query = "Brot"
+query = "Semantische Gültigkeit, Tautologien"
 a = test(a)
-#b = test(b)
+b = test(b)
 query = test(query)
 
 
 diff1 = np.linalg.norm(query - a)
-#diff2 = np.linalg.norm(query - b)
+diff2 = np.linalg.norm(query - b)
 #diff3 = np.linalg.norm(b-a)
 
 print(diff1)
-#print(diff2)
+print(diff2)
 #print(diff3)

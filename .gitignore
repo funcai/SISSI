@@ -2,3 +2,6 @@
 datacollection/node_modules
 data/wikipedia.csv
 __pycache__
+*.csv
+*.zip
+*.hdf5

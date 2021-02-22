@@ -20,31 +20,78 @@ class EvaluateModel:
 
         test_data_path = path.abspath(path.join(__file__ ,"../../..")) + "/data/" + "wiki_de_test.csv"
         self.test_data = pd.read_csv(test_data_path)
-        #self.test_data = self.test_data[5]
-        print(len(self.test_data))
-
         # predictions = self.tester.predict(["hello","oh"])
         # print(len(predictions))
+        self.predictions = None
 
-    # def get_mse(self):
+    def predict_test_data(self):
+        self.predictions = self.tester.predict(self.test_data.text)
 
-    def get_distances_in_group(self):
-        distances = {}
+    def get_mean_distances_in_group(self):
+        mean_distances = {}
+        median_distances = {}
+        variances = {}
+
         for label in self.test_data.label.unique()[:2]:
             print("Calculating distances for label {}".format(label))
             label_dist = []
             label_data = self.test_data[self.test_data.label == label]
             for a, b in combinations(label_data.text, 2):
-                pred_a = self.tester.predict(a)
-                pred_b = self.tester.predict(b)
-                dist = np.linalg.norm(pred_a-pred_b)
+                pred = self.tester.predict([a, b])
+                dist = np.linalg.norm(pred[0].numpy() - pred[1].numpy())
+                # print(dist)
                 label_dist.append(dist)
 
-            distances[label] = np.mean(label_dist)
+            mean_distances[label] = np.mean(label_dist)
+            median_distances[label] = np.median(label_dist)
+            variances[label] = np.var(label_dist)
 
         # TODO norm distances
-        print("Distances in group: {}".format(distances))
-                
+        print("Mean distances in group: {}".format(mean_distances))
+        print("Median distances in group: {}".format(median_distances))           
+
+    def get_cosine_similarities(self):
+        cos_similarities = {}
+
+        if self.predictions == None:
+            self.predict_test_data()
+
+        for a, b in combinations(enumerate(self.predictions), 2):
+            label_a = self.test_data.label[a[0]]
+            label_b = self.test_data.label[b[0]]
+            comb_label = str(label_a)+ "-" + str(label_b)
+
+            cos_sim = np.dot(a[1], b[1]) / (np.linalg.norm(a[1]) * np.linalg.norm(b[1]))
+            
+            if not comb_label in cos_similarities:
+                cos_similarities[comb_label] = [cos_sim]
+            else:
+                cos_similarities[comb_label].append(cos_sim)
+
+        # print("len is: {}".format(cos_similarities))
+        return cos_similarities
+
+    def get_distances(self):
+        distances = {}
+
+        if self.predictions == None:
+            self.predict_test_data()
+
+        for a, b in combinations(enumerate(self.predictions), 2):
+            label_a = self.test_data.label[a[0]]
+            label_b = self.test_data.label[b[0]]
+            comb_label = str(label_a)+ "-" + str(label_b)
+
+            dist = np.linalg.norm(a[1] - b[1])
+            
+            if not comb_label in distances:
+                distances[comb_label] = [dist]
+            else:
+                distances[comb_label].append(dist)
+
+        # print("len is: {}".format(distances))
+        return distances
+
     def get_distances_to_similar(self):
         # is it fine to use new text here?
         a = "Mein rotes Auto ist vor der Bäckerei kaputt gegangen" # 0
@@ -65,21 +112,34 @@ class EvaluateModel:
         # print("Following should be small: {}, {}, {}")
 
     def search_engine_test(self):
-        search = "Bekannte Kurzfilme"
+        search =  ["Bekannte Kurzfilme"]
         # +1 for good result, -1 for wrong result, +2 for not obvious result
-        score = 1
-        results = [["Der Film Pulp Fiction ist einer der besten die jemals produziert wurden", score],
-                    ["Kräfte sind in der Physik sehr relevant", -score],
-                    ["Arne dreht gerne kurze Videos, er ist einer der bekanntesten", score*2],
-                    ["Brot wird aus Weizen gebacken", -score]]
+        # score = 1
+        results = ["Der Film Pulp Fiction ist einer der besten die jemals produziert wurden",
+                    "Kräfte sind in der Physik sehr relevant",
+                    "Arne dreht gerne kurze Videos, er ist einer der bekanntesten",
+                    "Brot wird aus Weizen gebacken"]
         
         search_pred = self.tester.predict(search)
-        result_pred = [self.tester.predict(x[0]) for x in results]
+        result_preds = self.tester.predict(results)
+        distances = {}
+        for i, result_pred in enumerate(result_preds):
+            distances[i] = np.linalg.norm(search_pred[0] - result_pred)
 
-        # which results has which ranking?
+        # order and print 
+        sorted_distances = dict(sorted(distances.items(), key=lambda item: item[1]))
+        print(sorted_distances)
         # k nearest neighboors?
+
+        # calculate score
+        # should be [2,0,1,3] or [2,0,3,1]
+        
 
 if __name__=="__main__":
     evaluate = EvaluateModel()
-    evaluate.get_distances_in_group()
-    evaluate.get_distances_to_similar()
+    # evaluate.get_distances_in_group()
+    # evaluate.get_distances_to_similar()
+    #evaluate.search_engine_test()
+    evaluate.predict_test_data()
+    evaluate.get_cosine_similarities()
+    print('Done')

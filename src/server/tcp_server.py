@@ -1,7 +1,7 @@
 import socket
 import sys
+import struct
 from sentence_transformers import SentenceTransformer, util
-from tensorflow.compat import as_bytes
 
 embedder = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
@@ -35,8 +35,14 @@ while True:
 
                 embedded_text = embedder.encode(str(received), convert_to_tensor=True)
                 
-                response_bytes = embedded_text.numpy().tobytes()
+                print(embedded_text.shape)
                 
+                response_bytes = b''
+
+                for txt in embedded_text:
+                    ba = struct.pack("d", txt)
+                    response_bytes = response_bytes + ba
+
                 connection.sendall(response_bytes)
 
                 received = b''

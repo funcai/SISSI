@@ -5,13 +5,13 @@ from torch import topk as torch_topk
 import sys
 import numpy as np
 
-
 def main(n_queries):
-    #n_queries = 2
 
     print("Starting test for {} queries...".format(n_queries))
 
-    embedder = SentenceTransformer('paraphrase-distilroberta-base-v1')
+    #model_name = 'paraphrase-distilroberta-base-v1'
+    model_name = 'T-Systems-onsite/cross-en-de-roberta-sentence-transformer'
+    embedder = SentenceTransformer(model_name)
     # get query dev
     # db_queries = pd.read_csv('~/datasets/ms_marco/queries/queries.dev.tsv', sep='\t', names=['id', 'query'])
 
@@ -39,14 +39,18 @@ def main(n_queries):
         query_data = db_top1000[db_top1000.qid == query_id]
 
         my_query = query_data['query'].iloc[0]
-        query_embeddings = embedder.encode(my_query, convert_to_tensor=True)
+        query_embedding = embedder.encode(my_query, convert_to_tensor=True)
         #print("Done, got query embeddings with len {} for query {}".format(len(query_embeddings), my_query))
 
         passage_embeddings = embedder.encode(query_data.passage.values, convert_to_tensor=True)
+
+        # save passage and check if embedding already exist
+
+
         #print("Done, got passage embeddings with len {}".format(len(passage_embeddings)))
 
         # cosin similarity and top results
-        cos_scores = util.pytorch_cos_sim(query_embeddings, passage_embeddings)[0]
+        cos_scores = util.pytorch_cos_sim(query_embedding, passage_embeddings)[0]
         top_k = min(1000, len(query_data))
 
         top_results = torch_topk(cos_scores, k=top_k)
@@ -55,14 +59,20 @@ def main(n_queries):
         query_revelant_passage = db_qrels[db_qrels.qid == query_id]
 
         query_score = 0
-        for count, (score, idx) in enumerate(zip(top_results[0], top_results[1])):
+        print("Query is: {}\n".format(my_query))
+        for position, (score, idx) in enumerate(zip(top_results[0], top_results[1])):
             passage_id = query_data['pid'].iloc[idx.numpy()]
+            passage_text = query_data['passage'].iloc[idx.numpy()]
+            if position < 10 or position > 990:
+                print("{} passage is: {}\n".format(position, passage_text))
             query_relevant_pids = query_revelant_passage.pid.values
             # check if relevant pids is > 0, otherwise skip
             if passage_id in query_relevant_pids:
-                query_score += (1/(count+1))
+                query_score += (1/(position+1))
+        for rpids in query_relevant_pids:
+            print("relevant passages would be {}".format(query_data['passage'][query_data.pid == rpids]))
 
-        print('Query score is {}\n'.format(query_score))
+        print('Query score is: {}\n'.format(query_score))
 
         overall_scores[str(query_id)] = query_score
 
@@ -73,7 +83,7 @@ def main(n_queries):
 
     results_df = pd.DataFrame(overall_scores, index=[0])
 
-    csv_filename = 'results/'+str(n_queries)+'_test_model.csv'
+    csv_filename = 'results/' + str(n_queries) + '_model.csv'
     results_df.to_csv(csv_filename, index=False)
 
 if __name__ == '__main__':

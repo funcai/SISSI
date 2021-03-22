@@ -1,4 +1,5 @@
 # SISSI (SImilarity baSed Search engIne)
+(SemantIsche deutSche SuchmaschIne)
 SISSI is an intelligent search engine that not only shows the most relevant documents for a query but also directly the best fitting passage found in them.
 
 ## Running in docker
